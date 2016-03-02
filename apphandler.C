@@ -8,11 +8,12 @@
 
 extern sd_bus *bus;
 
+
 void register_netfn_app_functions() __attribute__((constructor));
 
 //---------------------------------------------------------------------
 // Called by Host on seeing a SMS_ATN bit set. Return a hardcoded 
-// value of 0x2 indicating we need Host read some data.
+// value of 0x2 indicating we need Host read some datan .
 //-------------------------------------------------------------------
 ipmi_ret_t ipmi_app_get_msg_flags(ipmi_netfn_t netfn, ipmi_cmd_t cmd,
                              ipmi_request_t request, ipmi_response_t response,
@@ -115,12 +116,14 @@ ipmi_ret_t ipmi_app_get_device_guid(ipmi_netfn_t netfn, ipmi_cmd_t cmd,
                              ipmi_request_t request, ipmi_response_t response,
                              ipmi_data_len_t data_len, ipmi_context_t context)
 {
+    _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+    _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
     const char  *busname = "org.openbmc.control.Chassis";
     const char  *objname = "/org/openbmc/control/chassis0";
     const char  *iface = "org.freedesktop.DBus.Properties";
     const char  *chassis_iface = "org.openbmc.control.Chassis";
-    sd_bus_message *reply = NULL;
-    sd_bus_error error = SD_BUS_ERROR_NULL;
+
     int r = 0;
     char *uuid = NULL;
 
@@ -149,7 +152,7 @@ ipmi_ret_t ipmi_app_get_device_guid(ipmi_netfn_t netfn, ipmi_cmd_t cmd,
     {
         fprintf(stderr, "Failed to call Get Method: %s\n", strerror(-r));
         rc = IPMI_CC_UNSPECIFIED_ERROR;
-        goto finish;
+        return rc;
     }
 
     r = sd_bus_message_read(reply, "v", "s", &uuid);
@@ -157,7 +160,7 @@ ipmi_ret_t ipmi_app_get_device_guid(ipmi_netfn_t netfn, ipmi_cmd_t cmd,
     {
         fprintf(stderr, "Failed to get a response: %s", strerror(-r));
         rc = IPMI_CC_RESPONSE_ERROR;
-        goto finish;
+        return rc;
     }
 
     // Traverse the UUID
@@ -168,7 +171,7 @@ ipmi_ret_t ipmi_app_get_device_guid(ipmi_netfn_t netfn, ipmi_cmd_t cmd,
         // Error
         fprintf(stderr, "Unexpected UUID format: %s", uuid);
         rc = IPMI_CC_RESPONSE_ERROR;
-        goto finish;
+        return rc;
     }
 
     while (id_octet != NULL)
@@ -195,11 +198,6 @@ ipmi_ret_t ipmi_app_get_device_guid(ipmi_netfn_t netfn, ipmi_cmd_t cmd,
 
     // Pack the actual response
     memcpy(response, &resp_uuid, *data_len);
-
-finish:
-    sd_bus_error_free(&error);
-    reply = sd_bus_message_unref(reply);
-
     return rc;
 }
 
@@ -239,11 +237,12 @@ ipmi_ret_t ipmi_app_set_watchdog(ipmi_netfn_t netfn, ipmi_cmd_t cmd,
                              ipmi_request_t request, ipmi_response_t response,
                              ipmi_data_len_t data_len, ipmi_context_t context)
 {
+    _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+    _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
     const char  *busname = "org.openbmc.watchdog.Host";
     const char  *objname = "/org/openbmc/watchdog/host0";
     const char  *iface = "org.openbmc.Watchdog";
-    sd_bus_message *reply = NULL;
-    sd_bus_error error = SD_BUS_ERROR_NULL;
     int r = 0;
 
     set_wd_data_t *reqptr = (set_wd_data_t*) request;
@@ -267,8 +266,6 @@ ipmi_ret_t ipmi_app_set_watchdog(ipmi_netfn_t netfn, ipmi_cmd_t cmd,
         fprintf(stderr, "Failed to call the SET method: %s\n", strerror(-r));
         goto finish;
     }
-
-    sd_bus_error_free(&error);
     reply = sd_bus_message_unref(reply);
 
     // Stop the current watchdog if any
@@ -282,7 +279,6 @@ ipmi_ret_t ipmi_app_set_watchdog(ipmi_netfn_t netfn, ipmi_cmd_t cmd,
 
     if (reqptr->t_use & 0x40)
     {
-        sd_bus_error_free(&error);
         reply = sd_bus_message_unref(reply);
 
         // Start the watchdog if requested
@@ -295,9 +291,6 @@ ipmi_ret_t ipmi_app_set_watchdog(ipmi_netfn_t netfn, ipmi_cmd_t cmd,
     }
 
 finish:
-    sd_bus_error_free(&error);
-    reply = sd_bus_message_unref(reply);
-
     return (r < 0) ? -1 : IPMI_CC_OK;
 }
 
@@ -306,11 +299,12 @@ ipmi_ret_t ipmi_app_reset_watchdog(ipmi_netfn_t netfn, ipmi_cmd_t cmd,
                              ipmi_request_t request, ipmi_response_t response,
                              ipmi_data_len_t data_len, ipmi_context_t context)
 {
+    _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+    _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
     const char  *busname = "org.openbmc.watchdog.Host";
     const char  *objname = "/org/openbmc/watchdog/host0";
     const char  *iface = "org.openbmc.Watchdog";
-    sd_bus_message *reply = NULL;
-    sd_bus_error error = SD_BUS_ERROR_NULL;
     int r = 0;
 
     // Status code.
@@ -326,10 +320,6 @@ ipmi_ret_t ipmi_app_reset_watchdog(ipmi_netfn_t netfn, ipmi_cmd_t cmd,
         fprintf(stderr, "Failed to add reset  watchdog: %s\n", strerror(-r));
         rc = -1;
     }
-
-    sd_bus_error_free(&error);
-    reply = sd_bus_message_unref(reply);
-
     return rc;
 }
 
